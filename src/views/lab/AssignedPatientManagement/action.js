@@ -1,5 +1,6 @@
 import axios from 'axios'
-const BASE_URL = "http://127.0.0.1:3002/api/v1/";
+// const BASE_URL = "http://127.0.0.1:3002/api/v1/";
+const BASE_URL = "https://api-dssmc.herokuapp.com/api/v1/";
 const ASSIGNED_PATIENTS = 'ASSIGNED_PATIENTS';
 const RECORD_LAB_RESULT = 'RECORD_LAB_RESULT';
 const DOCTORS = 'DOCTORS'
