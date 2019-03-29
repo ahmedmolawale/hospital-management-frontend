@@ -1,6 +1,7 @@
 import axios from 'axios'
-// const BASE_URL = "http://127.0.0.1:3002/api/v1/";
-const BASE_URL = "https://api-dssmc.herokuapp.com/api/v1/";
+ const BASE_URL = "http://127.0.0.1:3002/api/v1/";
+ const BASE_URL_PREDICTION = "http://127.0.0.1:8000/api/";
+//const BASE_URL = "https://api-dssmc.herokuapp.com/api/v1/";
 const ASSIGNED_PATIENTS = 'ASSIGNED_PATIENTS';
 const DOCTORS = 'DOCTORS'
 const RECORD_VITALS = 'RECORD_VITALS';
@@ -9,6 +10,8 @@ const SAVE_MEDICAL_RECORD = 'SAVE_MEDICAL_RECORD';
 const LABS_ATTENDANT = 'LABS_ATTENDANT';
 const ASSIGN_PATIENT_LAB = 'ASSIGN_PATIENT_LAB';
 const GET_LAB_RESULTS = 'GET_LAB_RESULTS';
+const PREDICT_DIAGNOSE = 'PREDICT_DIAGNOSE';
+const PREDICT_TREATMENT = 'PREDICT_TREATMENT'
 
 export function fetchAssignedPatients(staffId) {
     const END_POINT = `doctor/${staffId}/assigned-patients`;
@@ -67,6 +70,24 @@ export function assignPatientToLab(body) {
     };
 }
 
+export function predictDiagnose(body) {
+    const END_POINT = "diagnose";
+    const URL = `${BASE_URL_PREDICTION}${END_POINT}`;
+    const request = axios.post(URL, body);
+    return {
+        type: PREDICT_DIAGNOSE,
+        payload: request
+    };
+}
+export function predictTreatment(body) {
+    const END_POINT = "treatment";
+    const URL = `${BASE_URL_PREDICTION}${END_POINT}`;
+    const request = axios.post(URL, body);
+    return {
+        type: PREDICT_TREATMENT,
+        payload: request
+    };
+}
 
 export function recordVitals(body) {
     const END_POINT = `nurse/record-vitals`;

@@ -285,7 +285,7 @@ onSubmit(e){
       others,
       pregnancy_number,
       complication,
-      mode_birth,
+      mode_of_birth: mode_birth,
       past_surgery,
       patient_id: this.state.selectedPatient.id,
       doctor_id:this.props.user.staff_id

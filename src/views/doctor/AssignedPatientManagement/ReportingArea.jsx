@@ -21,7 +21,9 @@ import {
   saveMedicalRecord,
   fetchLabAttendants,
   assignPatientToLab,
-  loadLabResults
+  loadLabResults,
+  predictTreatment,
+  predictDiagnose
 } from "./action.js";
 import ReactTable from "react-table";
 import 'react-table/react-table.css';
@@ -312,6 +314,7 @@ sendToLab(){
     } = response.payload;
     this.setState({labs: data, showModal: true})
   }).catch(err => {
+    console.log('Err is ', err);
     this.showAlert('Error', 'An error occurred fetching lab attendants')
   })
 }
@@ -406,13 +409,116 @@ generateLabData(labs) {
   })
 }
 onDiagonise(){
-  console.log('Diagonising patient...')
-  this.showAlert('Predict', 'Predict diagnosis')
+  let labResult;
+  if(this.state.labResults.length > 0)
+      labResult = this.state.labResults[this.state.labResults.length-1]
+  else
+    return this.showAlert('Diagnose Report', 'Lab result not available. Send patient to lab.');
+  const {
+    medicalRecord,
+    patientVitals
+  } = this.props;
+  const features = this.formatPredictionFeatures(medicalRecord, patientVitals, labResult).replace('  ', ' ');
+  console.log('Features ', features);
+  const requestBody = {
+    instance: features
+  }
+  this.props.predictDiagnose(requestBody)
+  .then(response => {
+    if(response.payload.status){
+      const res = response.payload.data.diagnose[0];
+      let result = '';
+      if(res.length === 0){
+        return this.showAlert('Diagnose Result', 'Cannot make prediction based on patient info and data available.')
+      }
+      console.log('Res is', res)
+      res.forEach(s => {
+        result += `\n${s}, `;
+      })
+      this.showAlert('Diagnose Result', result)
+    }else{
+      this.showAlert('Prediction failed', 'Please try again.')
+    }
+  }).catch(err => {
+    this.showAlert('Error', 'An error occurred during diagnose.')
+  });
+}
+
+formatPredictionFeatures(medicalRecord, patientVitals, labResult){
+  let {
+    blood_pressure,
+    temperature,
+    pulse,
+    weight
+  } = patientVitals;
+  let {
+    pregnancy_number,
+    past_surgery,
+    others,
+    genetic_diabetics,
+    mode_of_birth,
+    complication,
+  } = medicalRecord
+  let {
+    white_blood_cell,
+    red_blood_cell,
+    urinalysis,
+    glucose,
+    heamoglobin
+  } = labResult
+  let { complaint } = this.state;
+  const left_blood_pressure = Math.floor(blood_pressure.split('/')[0]/10)
+  const right_blood_pressure = Math.floor(blood_pressure.split('/')[1]/10)
+  blood_pressure = `${left_blood_pressure}/${right_blood_pressure}`
+  temperature = Math.floor(temperature/10)
+  weight = Math.floor(weight/10)
+  pulse = Math.floor(pulse/10)
+  genetic_diabetics = genetic_diabetics ? 'yes': 'no';
+  mode_of_birth = mode_of_birth ? mode_of_birth : ''
+  others = others ? others : ''
+  urinalysis = urinalysis ? urinalysis: ''
+  complaint = complaint ? complaint: ''
+  complaint = complaint ? complaint.replace(/,/g,''): ''
+  return `${blood_pressure} ${temperature} ${weight} ${pulse} ${pregnancy_number} ${genetic_diabetics.toLowerCase()} ${mode_of_birth.toLowerCase()} ${complication.toLowerCase()} ${past_surgery.toLowerCase()} ${others.toLowerCase()} ${white_blood_cell} ${red_blood_cell} ${urinalysis.toLowerCase()} ${heamoglobin} ${complaint.toLowerCase()}`
 }
 
 onTreatment(){
-  console.log('Treat patient...');
-  this.showAlert('Predict', 'Predict Treatment')
+  let labResult;
+  if(this.state.labResults.length > 0)
+      labResult = this.state.labResults[this.state.labResults.length-1]
+  else
+    return this.showAlert('Treatment Report', 'Lab result not available. Send patient to lab.');
+  const {
+    medicalRecord,
+    patientVitals
+  } = this.props;
+  const features = this.formatPredictionFeatures(medicalRecord, patientVitals, labResult).replace(/  /g, ' ');
+  console.log('Features ', features);
+  const requestBody = {
+    instance: features
+  }
+  this.props.predictTreatment(requestBody)
+  .then(response => {
+    console.log('Response is ', response);
+    if(response.payload.status){
+      const res = response.payload.data.treatment[0];
+      let result = '';
+      if(res.length === 0){
+        return this.showAlert('Treatment Result', 'Cannot make prediction based on patient info and data available')
+      }
+      console.log('Res is', res)
+      res.forEach(s => {
+        console.log('S is', s);
+        result += `\n${s}, `;
+      })
+      this.showAlert('Treatment Result', result)
+
+    }else{
+      this.showAlert('Prediction failed', 'Please try again.')
+    }
+  }).catch(err => {
+    this.showAlert('Error', 'An error occurred during treatment prediction.')
+  });
 }
 
   render() {
@@ -432,7 +538,7 @@ onTreatment(){
     } = this.props.patientVitals
 
     let labResult = null;
-    if(this.state.labResults){
+    if(this.state.labResults && this.state.labResults.length > 0){
       labResult = this.state.labResults[this.state.labResults.length-1]
       console.log('Res', labResult)
     }
@@ -696,6 +802,41 @@ onTreatment(){
             </Button>
           </Modal.Footer>
         </Modal>
+          <Modal show={this.state.showModal} onHide={this.close.bind(this)}>
+          <ModalHeader closeButton>
+            <ModalTitle>
+              <strong>Choose a Lab attendant</strong>
+            </ModalTitle>
+          </ModalHeader>
+          <ModalBody>
+          <Loading isLoading={this.state.isLoadingLabs} />
+          {this.state.labs ? 
+            <div>
+                      <ReactTable
+                          className={'center-align'}
+                          data={this.generateLabData(this.state.labs)}
+                          columns={this.columnGeneratorLab()}
+                          filtered = {this.state.filtered}
+                          onFilteredChange={this.onFilteredChange.bind(this)}
+                          defaultPageSize={5}
+                          getTheadProps={(state, rowInfo, column) => {
+                                            return {
+                                                style: {
+                                                    background: "#FFF",
+                                                    color: "black",
+                                                   
+                                                }
+                                            };
+                        }}/>
+            </div>
+            :''}
+          </ModalBody>
+          <Modal.Footer>
+            <Button bsStyle="danger" fill onClick={this.close.bind(this)}>
+              Close
+            </Button>
+          </Modal.Footer>
+        </Modal>
         </Grid>
         <div />
       </div>
@@ -717,5 +858,7 @@ export default connect(mapStateToProps, {
   loadLabResults,
   saveMedicalRecord,
   fetchLabAttendants,
-  assignPatientToLab
+  assignPatientToLab,
+  predictTreatment,
+  predictDiagnose
 })(ReportingArea);
